@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
 
+
 import cmd
 import os
-from pytodotxt import TodoTxt
+from pytodotxt import TodoTxt, Task
 from rich.console import Console
 from rich.table import Table
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.validation import Validator, ValidationError
 
 # Constants
 TODO_FILE = "todo.txt"
 
 # Rich console for better UI
 console = Console()
-
-# Autocomplete for commands
-task_completer = WordCompleter(
-    ["add", "list", "complete", "remove", "exit"], ignore_case=True
-)
 
 # Initialize TodoTxt object
 td = TodoTxt(TODO_FILE)
@@ -28,70 +25,82 @@ def save_tasks():
     """Save the current tasks to the file."""
     td.save()
 
-def sort_tasks(tasks, sort_by):
-    """Sort tasks based on the given column."""
-    if sort_by == "priority":
-        return sorted(tasks, key=lambda t: t.priority if t.priority else "Z")
-    elif sort_by == "status":
-        return sorted(tasks, key=lambda t: t.is_completed)  # Pending first
-    elif sort_by == "task":
-        return sorted(tasks, key=lambda t: t.text.lower())
-    return tasks  # Default order
+def extract_projects_and_contexts():
+    """Extract all unique projects (+Project) and contexts (@Context) from tasks."""
+    projects = set()
+    contexts = set()
+    for task in td.tasks:
+        words = task.description.split()
+        for word in words:
+            if word.startswith("+"):
+                projects.add(word)
+            elif word.startswith("@"):
+                contexts.add(word)
+    return sorted(projects), sorted(contexts)
 
-def filter_tasks(tasks, filter_by):
-    """Filter tasks by pending or completed status."""
-    if filter_by == "pending":
-        return [task for task in tasks if not task.is_completed]
-    elif filter_by == "completed":
-        return [task for task in tasks if task.is_completed]
-    return tasks  # No filter applied
+class PriorityValidator(Validator):
+    """Validator to ensure priority is a single uppercase letter (A-Z) or empty."""
+    def validate(self, document):
+        text = document.text.strip()
+        if text and (len(text) != 1 or not text.isalpha() or not text.isupper()):
+            raise ValidationError(message="Priority must be a single uppercase letter (A-Z) or empty.")
 
 class TaskShell(cmd.Cmd):
     intro = "Welcome to the Interactive Task Manager (todo.txt format)! Type ? or help to see commands."
     prompt = "(task-manager) "
 
     def do_add(self, arg):
-        """Add a new task: add <task description>"""
-        if not arg:
+        """Add a new task with an interactive form."""
+        console.print("\n[bold cyan]Add a new task:[/bold cyan]")
+
+        task_text = prompt("Task description: ").strip()
+        if not task_text:
             console.print("[bold red]Task description cannot be empty![/bold red]")
             return
-        td.add(arg)
+
+        priority = prompt("Priority (A-Z, optional): ", validator=PriorityValidator(), default="").strip()
+
+        # Fetch existing projects and contexts
+        projects, contexts = extract_projects_and_contexts()
+
+        # Set up auto-completion
+        project_completer = WordCompleter(projects, ignore_case=True, sentence=True)
+        context_completer = WordCompleter(contexts, ignore_case=True, sentence=True)
+
+        project = prompt("Project (e.g., +Work, optional): ", default="", completer=project_completer).strip()
+        context = prompt("Context (e.g., @Home, optional): ", default="", completer=context_completer).strip()
+
+        task_string = task_text
+        if priority:
+            task_string = f"({priority}) {task_string}"
+        if project:
+            task_string += f" {project}"
+        if context:
+            task_string += f" {context}"
+
+        # Create a Task object and add it
+        task = Task(task_string)
+        td.add(task)
         save_tasks()
-        console.print(f"[green]Task added:[/green] {arg}")
+        console.print(f"[green]Task added:[/green] {task_string}")
 
     def do_list(self, arg):
-        """List all tasks with optional sorting and filtering.
-        
-        Usage:
-            list --sort=priority|status|task --filter=pending|completed
-        """
+        """List all tasks."""
         if not td.tasks:
             console.print("[yellow]No tasks available![/yellow]")
             return
 
-        # Extract sorting and filtering arguments if provided
-        sort_by, filter_by = None, None
-        args = arg.split()
-        for a in args:
-            if a.startswith("--sort="):
-                sort_by = a.split("=")[1].strip()
-            elif a.startswith("--filter="):
-                filter_by = a.split("=")[1].strip()
-
-        tasks = td.tasks
-        tasks = filter_tasks(tasks, filter_by)
-        tasks = sort_tasks(tasks, sort_by)
-
-        table = Table(title=f"Task List (Sorted: {sort_by if sort_by else 'Default'}, Filtered: {filter_by if filter_by else 'None'})")
+        table = Table(title="Task List")
         table.add_column("ID", style="cyan")
         table.add_column("Task", style="magenta")
         table.add_column("Priority", style="yellow")
         table.add_column("Status", style="green")
 
-        for idx, task in enumerate(tasks, 1):
+        for idx, task in enumerate(td.tasks, 1):
             status = "[green]✔ Completed" if task.is_completed else "[red]✖ Pending"
             priority = task.priority if task.priority else "-"
-            table.add_row(str(idx), task.text, priority, status)
+            task_text = task.description  # Use get_text() instead of text
+            table.add_row(str(idx), task_text, priority, status)
 
         console.print(table)
 
@@ -115,7 +124,7 @@ class TaskShell(cmd.Cmd):
             if 0 <= task_id < len(td.tasks):
                 removed_task = td.tasks.pop(task_id)
                 save_tasks()
-                console.print(f"[bold yellow]Task removed:[/bold yellow] {removed_task.text}")
+                console.print(f"[bold yellow]Task removed:[/bold yellow] {removed_task.description}")
             else:
                 console.print("[red]Invalid task ID![/red]")
         except ValueError:
@@ -134,7 +143,7 @@ if __name__ == "__main__":
     
     while True:
         try:
-            user_input = prompt("(task-manager) ", completer=task_completer)
+            user_input = prompt("(task-manager) ", completer=WordCompleter(["add", "list", "complete", "remove", "exit"], ignore_case=True))
             shell.onecmd(user_input)
             if user_input == "exit":
                 break
