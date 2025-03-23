@@ -126,6 +126,26 @@ class TaskShell(cmd.Cmd):
         except ValueError:
             console.print("[bold red]Please enter a valid task ID.[/bold red]")
 
+    def do_switch(self, arg):
+        """Switch to a different todo file: switch <filename>"""
+        global td_manager, td
+        new_file = arg.strip()
+        if not new_file:
+            console.print("[bold red]Please provide a filename.[/bold red]")
+            return
+        if not os.path.exists(new_file):
+            console.print(f"[bold red]File '{new_file}' does not exist![/bold red]")
+            create = prompt("Do you want to create it? [y/n]: ").strip().lower()
+            if create == 'y':
+                with open(new_file, 'w') as f:
+                    console.print(f"[bold green]File '{new_file}' created.[/bold green]")
+            else:
+                console.print("[bold yellow]Operation cancelled.[/bold yellow]")
+                return
+        td_manager = TodoTxtFileManager(new_file)
+        td = td_manager.read_tasks()
+        console.print(f"[bold green]Switched to file: {new_file}[/bold green]")
+
     def do_exit(self, arg):
         """Exit the Task Manager"""
         console.print("[bold cyan]Goodbye![/bold cyan]")
@@ -139,7 +159,7 @@ if __name__ == "__main__":
 
     while True:
         try:
-            user_input = prompt("(task-manager) ", completer=WordCompleter(["add", "list", "complete", "remove", "exit"], ignore_case=True))
+            user_input = prompt("(task-manager) ", completer=WordCompleter(["add", "list", "complete", "remove", "switch", "exit"], ignore_case=True))
             shell.onecmd(user_input)
             if user_input == "exit":
                 break
