@@ -71,7 +71,6 @@ def select_file():
 class TaskShell(cmd.Cmd):
     intro = "Welcome to the Interactive Task Manager (todo.txt format)! Type ? or help to see commands."
     prompt = "(task-manager) "
-
     def do_add(self, arg):
         """Add a new task with an interactive form."""
         console.print("\n[bold cyan]Add a new task:[/bold cyan]")
@@ -90,23 +89,19 @@ class TaskShell(cmd.Cmd):
         project_completer = WordCompleter(projects, ignore_case=True, sentence=True)
         context_completer = WordCompleter(contexts, ignore_case=True, sentence=True)
 
-        project = prompt("Project (e.g., +Work, optional): ", default="", completer=project_completer).strip()
-        context = prompt("Context (e.g., @Home, optional): ", default="", completer=context_completer).strip()
+        project_input = prompt("Projects (e.g., +Work +Home, optional): ", default="", completer=project_completer, complete_while_typing=True).strip()
+        context_input = prompt("Contexts (e.g., @Home @Work, optional): ", default="", completer=context_completer, complete_while_typing=True).strip()
+
+        # Split and strip extra spaces
+        projects = [project.strip().removeprefix("+") for project in project_input.split("+") if project.strip()]
+        contexts = [context.strip().removeprefix("@") for context in context_input.split("@") if context.strip()]
 
         task_string = task_text
-        if priority:
-            task_string = f"({priority}) {task_string}"
-        if project:
-            task_string += f" {project}"
-        if context:
-            task_string += f" {context}"
-
         # Create a Task object and add it
-        task = Task(task_string)
+        task = Task(task_string, priority=priority, projects=projects, contexts=contexts)
         td.append(task)
         save_tasks()
         console.print(f"[green]Task added:[/green] {task_string}")
-
     def do_list(self, arg):
         """List all tasks."""
         if not td:
