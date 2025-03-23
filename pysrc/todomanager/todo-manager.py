@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-
 import cmd
 import os
-from pytodotxt import TodoTxt, Task
+from todotxtlib import TodoTxtFileManager, Task
 from rich.console import Console
 from rich.table import Table
 from prompt_toolkit import prompt
@@ -16,26 +15,23 @@ TODO_FILE = "todo.txt"
 # Rich console for better UI
 console = Console()
 
-# Initialize TodoTxt object
-td = TodoTxt(TODO_FILE)
-if os.path.exists(TODO_FILE):
-    td.parse()
+# Initialize TodoTxtFileManager object
+td_manager = TodoTxtFileManager(TODO_FILE)
+td = td_manager.read_tasks()
 
 def save_tasks():
     """Save the current tasks to the file."""
-    td.save()
+    td_manager.write_tasks(td)
 
 def extract_projects_and_contexts():
     """Extract all unique projects (+Project) and contexts (@Context) from tasks."""
     projects = set()
     contexts = set()
-    for task in td.tasks:
-        words = task.description.split()
-        for word in words:
-            if word.startswith("+"):
-                projects.add(word)
-            elif word.startswith("@"):
-                contexts.add(word)
+    for task in td:
+        for tag in task.tags:
+            projects.add(f"+{tag}")
+        for context in task.contexts:
+            contexts.add(f"@{context}")
     return sorted(projects), sorted(contexts)
 
 class PriorityValidator(Validator):
@@ -80,13 +76,13 @@ class TaskShell(cmd.Cmd):
 
         # Create a Task object and add it
         task = Task(task_string)
-        td.add(task)
+        td.append(task)
         save_tasks()
         console.print(f"[green]Task added:[/green] {task_string}")
 
     def do_list(self, arg):
         """List all tasks."""
-        if not td.tasks:
+        if not td:
             console.print("[yellow]No tasks available![/yellow]")
             return
 
@@ -96,10 +92,10 @@ class TaskShell(cmd.Cmd):
         table.add_column("Priority", style="yellow")
         table.add_column("Status", style="green")
 
-        for idx, task in enumerate(td.tasks, 1):
-            status = "[green]✔ Completed" if task.is_completed else "[red]✖ Pending"
+        for idx, task in enumerate(td, 1):
+            status = "[green]✔ Completed" if task.completed else "[red]✖ Pending"
             priority = task.priority if task.priority else "-"
-            task_text = task.description  # Use get_text() instead of text
+            task_text = task.description
             table.add_row(str(idx), task_text, priority, status)
 
         console.print(table)
@@ -108,8 +104,8 @@ class TaskShell(cmd.Cmd):
         """Mark a task as completed: complete <task ID>"""
         try:
             task_id = int(arg) - 1
-            if 0 <= task_id < len(td.tasks):
-                td.tasks[task_id].complete()
+            if 0 <= task_id < len(td):
+                td[task_id].mark_completed()
                 save_tasks()
                 console.print(f"[bold green]Task {task_id + 1} marked as completed![/bold green]")
             else:
@@ -121,8 +117,8 @@ class TaskShell(cmd.Cmd):
         """Remove a task: remove <task ID>"""
         try:
             task_id = int(arg) - 1
-            if 0 <= task_id < len(td.tasks):
-                removed_task = td.tasks.pop(task_id)
+            if 0 <= task_id < len(td):
+                removed_task = td.pop(task_id)
                 save_tasks()
                 console.print(f"[bold yellow]Task removed:[/bold yellow] {removed_task.description}")
             else:
@@ -140,7 +136,7 @@ class TaskShell(cmd.Cmd):
 
 if __name__ == "__main__":
     shell = TaskShell()
-    
+
     while True:
         try:
             user_input = prompt("(task-manager) ", completer=WordCompleter(["add", "list", "complete", "remove", "exit"], ignore_case=True))
@@ -150,4 +146,3 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             console.print("\n[bold cyan]Exiting Task Manager. Goodbye![/bold cyan]")
             break
-
