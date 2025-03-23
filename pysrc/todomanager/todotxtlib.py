@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 
 class Task:
-    def __init__(self, description, completed=False, priority=None, created_date=None, completed_date=None, tags=None, contexts=None):
+    def __init__(self, description, completed=False, priority=None, created_date=None, completed_date=None, tags=None, contexts=None, projects=None):
         self.description = description
         self.completed = completed
         self.priority = priority
@@ -10,6 +10,7 @@ class Task:
         self.completed_date = completed_date
         self.tags = tags or []
         self.contexts = contexts or []
+        self.projects = projects or []
 
     def __str__(self):
         return self.to_string()
@@ -25,6 +26,8 @@ class Task:
         task_str += self.description + ' '
         contexts_str = ' '.join(['@' + context for context in self.contexts])
         task_str += contexts_str + ' ' if contexts_str else ''
+        projects_str = ' '.join(['+' + project for project in self.projects])
+        task_str += projects_str + ' ' if projects_str else ''
         tags_str = ' '.join(['+' + tag for tag in self.tags])
         task_str += tags_str + ' ' if tags_str else ''
         return task_str.strip()
@@ -40,6 +43,10 @@ class Task:
     def add_tag(self, tag):
         if tag not in self.tags:
             self.tags.append(tag)
+
+    def add_project(self, project):
+        if project not in self.projects:
+            self.projects.append(project)
 
 
 class TodoTxtFileManager:
@@ -77,7 +84,8 @@ class TodoTxtFileManager:
 
         contexts = re.findall(r'\s+@(\w+)', description)
         tags = re.findall(r'\s+\+(\w+)', description)
+        projects = [tag for tag in tags if not any(tag.startswith(ctx) for ctx in contexts)]  # Separate projects and tags
 
         description = re.sub(r'\s*[@+]\w+', '', description).strip()
 
-        return Task(description, completed, priority, created_date, completed_date, tags, contexts)
+        return Task(description, completed, priority, created_date, completed_date, [tag for tag in tags if tag not in projects], contexts, projects)
