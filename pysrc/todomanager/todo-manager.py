@@ -112,7 +112,7 @@ class TaskShell(cmd.Cmd):
         console.print(f"[green]Task added:[/green] {task_string}")
 
     def do_list(self, arg):
-        """List all tasks."""
+        """List all tasks with projects, contexts, and tags."""
         if not td:
             console.print("[yellow]No tasks available![/yellow]")
             return
@@ -122,12 +122,20 @@ class TaskShell(cmd.Cmd):
         table.add_column("Task", style="magenta")
         table.add_column("Priority", style="yellow")
         table.add_column("Status", style="green")
+        table.add_column("Created", style="blue")
+        table.add_column("Completed", style="red")
+        table.add_column("Projects", style="bold blue")
+        table.add_column("Contexts", style="bold green")
 
         for idx, task in enumerate(td, 1):
             status = "[green]✔ Completed" if task.completed else "[red]✖ Pending"
             priority = task.priority if task.priority else "-"
             task_text = task.description
-            table.add_row(str(idx), task_text, priority, status)
+            projects = ", ".join(f"+{proj}" for proj in task.projects) if task.projects else "-"
+            contexts = ", ".join(f"@{cont}" for cont in task.contexts) if task.contexts else "-"
+            created = task.created_date if task.created_date else "-"
+            due = task.completed_date if task.completed_date else "-"
+            table.add_row(str(idx), task_text, priority, status, created, due, projects, contexts)
 
         console.print(table)
 
