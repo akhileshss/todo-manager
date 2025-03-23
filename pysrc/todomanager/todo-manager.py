@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import cmd
-import os
 from todotxtlib import TodoTxtFileManager, Task
 from rich.console import Console
 from rich.table import Table
