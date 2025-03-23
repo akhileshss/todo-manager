@@ -71,6 +71,7 @@ def select_file():
 class TaskShell(cmd.Cmd):
     intro = "Welcome to the Interactive Task Manager (todo.txt format)! Type ? or help to see commands."
     prompt = "(task-manager) "
+
     def do_add(self, arg):
         """Add a new task with an interactive form."""
         console.print("\n[bold cyan]Add a new task:[/bold cyan]")
@@ -89,19 +90,27 @@ class TaskShell(cmd.Cmd):
         project_completer = WordCompleter(projects, ignore_case=True, sentence=True)
         context_completer = WordCompleter(contexts, ignore_case=True, sentence=True)
 
-        project_input = prompt("Projects (e.g., +Work +Home, optional): ", default="", completer=project_completer, complete_while_typing=True).strip()
-        context_input = prompt("Contexts (e.g., @Home @Work, optional): ", default="", completer=context_completer, complete_while_typing=True).strip()
+        def get_multiselect_input(description, completer):
+            """Get multiple selections from the user with autocomplete."""
+            selections = []
+            prompt_input = prompt(description, completer=completer, complete_while_typing=True).strip()
+            while prompt_input:
+                if prompt_input.startswith("+"):
+                    selections.extend([proj.strip("+").strip() for proj in prompt_input.lstrip("+").split("+")])
+                elif prompt_input.startswith("@"):
+                    selections.extend([cont.strip("@").strip() for cont in prompt_input.lstrip("@").split("@")])
+                prompt_input = prompt(description, completer=completer, complete_while_typing=True).strip()
+            return selections
 
-        # Split and strip extra spaces
-        projects = [project.strip().removeprefix("+") for project in project_input.split("+") if project.strip()]
-        contexts = [context.strip().removeprefix("@") for context in context_input.split("@") if context.strip()]
-
+        projects = get_multiselect_input("Projects (e.g., +Work +Home, optional): ", project_completer)
+        contexts = get_multiselect_input("Contexts (e.g., @Home @Work, optional): ", context_completer)
         task_string = task_text
         # Create a Task object and add it
         task = Task(task_string, priority=priority, projects=projects, contexts=contexts)
         td.append(task)
         save_tasks()
         console.print(f"[green]Task added:[/green] {task_string}")
+
     def do_list(self, arg):
         """List all tasks."""
         if not td:
