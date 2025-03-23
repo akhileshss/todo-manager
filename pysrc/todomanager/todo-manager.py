@@ -8,6 +8,7 @@ from rich.table import Table
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.validation import Validator, ValidationError
+from pathlib import Path
 
 # Constants
 TODO_FILE = "todo.txt"
@@ -28,7 +29,7 @@ def extract_projects_and_contexts():
     projects = set()
     contexts = set()
     for task in td:
-        for tag in task.tags:
+        for tag in task.projects:
             projects.add(f"+{tag}")
         for context in task.contexts:
             contexts.add(f"@{context}")
@@ -40,6 +41,32 @@ class PriorityValidator(Validator):
         text = document.text.strip()
         if text and (len(text) != 1 or not text.isalpha() or not text.isupper()):
             raise ValidationError(message="Priority must be a single uppercase letter (A-Z) or empty.")
+
+def select_file():
+    """Text-based file selector to choose a todo.txt file with an option to create a new file."""
+    todo_files = [f.name for f in Path().glob("*.txt") if f.name.endswith(".txt")]
+    console.print("[bold cyan]Select a todo.txt file:[/bold cyan]")
+    for i, file in enumerate(todo_files, 1):
+        console.print(f"{i}. {file}")
+    console.print(f"{len(todo_files) + 1}. Create a new .txt file")
+
+    try:
+        choice = int(prompt("Enter the number of the file to switch to or create a new file: ").strip())
+        if 1 <= choice <= len(todo_files):
+            return todo_files[choice - 1]
+        elif choice == len(todo_files) + 1:
+            new_file_name = prompt("Enter the name for the new .txt file: ").strip()
+            if not new_file_name.endswith(".txt"):
+                new_file_name += ".txt"
+            with open(new_file_name, 'w') as f:
+                console.print(f"[bold green]File '{new_file_name}' created.[/bold green]")
+            return new_file_name
+        else:
+            console.print("[red]Invalid selection![/red]")
+            return None
+    except ValueError:
+        console.print("[bold red]Please enter a valid number.[/bold red]")
+        return None
 
 class TaskShell(cmd.Cmd):
     intro = "Welcome to the Interactive Task Manager (todo.txt format)! Type ? or help to see commands."
@@ -127,27 +154,18 @@ class TaskShell(cmd.Cmd):
             console.print("[bold red]Please enter a valid task ID.[/bold red]")
 
     def do_switch(self, arg):
-        """Switch to a different todo file: switch <filename>"""
+        """Switch to a different todo file using a file selector."""
         global td_manager, td
-        new_file = arg.strip()
-        if not new_file:
-            console.print("[bold red]Please provide a filename.[/bold red]")
+        selected_file = select_file()
+        if not selected_file:
+            console.print("[bold yellow]No file selected. Operation cancelled.[/bold yellow]")
             return
-        if not os.path.exists(new_file):
-            console.print(f"[bold red]File '{new_file}' does not exist![/bold red]")
-            create = prompt("Do you want to create it? [y/n]: ").strip().lower()
-            if create == 'y':
-                with open(new_file, 'w') as f:
-                    console.print(f"[bold green]File '{new_file}' created.[/bold green]")
-            else:
-                console.print("[bold yellow]Operation cancelled.[/bold yellow]")
-                return
-        td_manager = TodoTxtFileManager(new_file)
+        td_manager = TodoTxtFileManager(selected_file)
         td = td_manager.read_tasks()
-        console.print(f"[bold green]Switched to file: {new_file}[/bold green]")
+        console.print(f"[bold green]Switched to file: {selected_file}[/bold green]")
 
     def do_exit(self, arg):
-        """Exit the Task Manager"""
+        """Exit the Task Manager."""
         console.print("[bold cyan]Goodbye![/bold cyan]")
         return True
 
