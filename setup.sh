@@ -6,13 +6,13 @@ source ~/.bash_profile
 
 export DEVEL_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-export DEVEL_VENV="learnpycli"
+export DEVEL_VENV="todo-manager"
 
 # Python setup
 workon $DEVEL_VENV
 cd $DEVEL_ROOT
 echo 'DEVEL_ROOT="'$DEVEL_ROOT'"'
-export PYTHONPATH=$DEVEL_ROOT/pysrc:$DEVEL_ROOT/pysrc/pb:$PYTHONPATH
+export PYTHONPATH=$DEVEL_ROOT:$PYTHONPATH
 
 # Golang setup
 gvm use go1.22.3
