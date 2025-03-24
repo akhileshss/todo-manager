@@ -1,17 +1,22 @@
 from cmd import Cmd
 from todotxtlib import Task
-from rich.console import Console
 from rich.table import Table
 from prompt_toolkit import prompt
+from pathlib import Path
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.validation import Validator, ValidationError
 
+
 class PriorityValidator(Validator):
     """Validator to ensure priority is a single uppercase letter (A-Z) or empty."""
+
     def validate(self, document):
         text = document.text.strip()
         if text and (len(text) != 1 or not text.isalpha() or not text.isupper()):
-            raise ValidationError(message="Priority must be a single uppercase letter (A-Z) or empty.")
+            raise ValidationError(
+                message="Priority must be a single uppercase letter (A-Z) or empty."
+            )
+
 
 class TaskShell(Cmd):
     intro = "Welcome to the Interactive Task Manager (todo.txt format)! Type ? or help to see commands."
@@ -36,7 +41,9 @@ class TaskShell(Cmd):
             self.console.print("[bold red]Task description cannot be empty![/bold red]")
             return
 
-        priority = prompt("Priority (A-Z, optional): ", validator=PriorityValidator(), default="").strip()
+        priority = prompt(
+            "Priority (A-Z, optional): ", validator=PriorityValidator(), default=""
+        ).strip()
 
         # Fetch existing projects and contexts
         projects, contexts = self.extract_projects_and_contexts()
@@ -48,20 +55,40 @@ class TaskShell(Cmd):
         def get_multiselect_input(description, completer):
             """Get multiple selections from the user with autocomplete."""
             selections = []
-            prompt_input = prompt(description, completer=completer, complete_while_typing=True).strip()
+            prompt_input = prompt(
+                description, completer=completer, complete_while_typing=True
+            ).strip()
             while prompt_input:
                 if prompt_input.startswith("+"):
-                    selections.extend([proj.strip("+").strip() for proj in prompt_input.lstrip("+").split("+")])
+                    selections.extend(
+                        [
+                            proj.strip("+").strip()
+                            for proj in prompt_input.lstrip("+").split("+")
+                        ]
+                    )
                 elif prompt_input.startswith("@"):
-                    selections.extend([cont.strip("@").strip() for cont in prompt_input.lstrip("@").split("@")])
-                prompt_input = prompt(description, completer=completer, complete_while_typing=True).strip()
+                    selections.extend(
+                        [
+                            cont.strip("@").strip()
+                            for cont in prompt_input.lstrip("@").split("@")
+                        ]
+                    )
+                prompt_input = prompt(
+                    description, completer=completer, complete_while_typing=True
+                ).strip()
             return selections
 
-        projects = get_multiselect_input("Projects (e.g., +Work +Home, optional): ", project_completer)
-        contexts = get_multiselect_input("Contexts (e.g., @Home @Work, optional): ", context_completer)
+        projects = get_multiselect_input(
+            "Projects (e.g., +Work +Home, optional): ", project_completer
+        )
+        contexts = get_multiselect_input(
+            "Contexts (e.g., @Home @Work, optional): ", context_completer
+        )
         task_string = task_text
         # Create a Task object and add it
-        task = Task(task_string, priority=priority, projects=projects, contexts=contexts)
+        task = Task(
+            task_string, priority=priority, projects=projects, contexts=contexts
+        )
         self.td.append(task)
         self.save_tasks()
         self.console.print(f"[green]Task added:[/green] {task_string}")
@@ -86,11 +113,21 @@ class TaskShell(Cmd):
             status = "[green]✔ Completed" if task.completed else "[red]✖ Pending"
             priority = task.priority if task.priority else "-"
             task_text = task.description
-            projects = ", ".join(f"+{proj}" for proj in task.projects) if task.projects else "-"
-            contexts = ", ".join(f"@{cont}" for cont in task.contexts) if task.contexts else "-"
+            projects = (
+                ", ".join(f"+{proj}" for proj in task.projects)
+                if task.projects
+                else "-"
+            )
+            contexts = (
+                ", ".join(f"@{cont}" for cont in task.contexts)
+                if task.contexts
+                else "-"
+            )
             created = task.created_date if task.created_date else "-"
             due = task.completed_date if task.completed_date else "-"
-            table.add_row(str(idx), task_text, priority, status, created, due, projects, contexts)
+            table.add_row(
+                str(idx), task_text, priority, status, created, due, projects, contexts
+            )
 
         self.console.print(table)
 
@@ -101,7 +138,9 @@ class TaskShell(Cmd):
             if 0 <= task_id < len(self.td):
                 self.td[task_id].mark_completed()
                 self.save_tasks()
-                self.console.print(f"[bold green]Task {task_id + 1} marked as completed![/bold green]")
+                self.console.print(
+                    f"[bold green]Task {task_id + 1} marked as completed![/bold green]"
+                )
             else:
                 self.console.print("[red]Invalid task ID![/red]")
         except ValueError:
@@ -114,7 +153,9 @@ class TaskShell(Cmd):
             if 0 <= task_id < len(self.td):
                 removed_task = self.td.pop(task_id)
                 self.save_tasks()
-                self.console.print(f"[bold yellow]Task removed:[/bold yellow] {removed_task.description}")
+                self.console.print(
+                    f"[bold yellow]Task removed:[/bold yellow] {removed_task.description}"
+                )
             else:
                 self.console.print("[red]Invalid task ID![/red]")
         except ValueError:
@@ -125,11 +166,15 @@ class TaskShell(Cmd):
         global td_manager, td
         selected_file = self.select_file()
         if not selected_file:
-            self.console.print("[bold yellow]No file selected. Operation cancelled.[/bold yellow]")
+            self.console.print(
+                "[bold yellow]No file selected. Operation cancelled.[/bold yellow]"
+            )
             return
         td_manager = self.td_manager.__class__(selected_file)
         td = td_manager.read_tasks()
-        self.console.print(f"[bold green]Switched to file: {selected_file}[/bold green]")
+        self.console.print(
+            f"[bold green]Switched to file: {selected_file}[/bold green]"
+        )
 
     def do_exit(self, arg):
         """Exit the Task Manager."""
@@ -159,15 +204,21 @@ class TaskShell(Cmd):
         self.console.print(f"{len(todo_files) + 1}. Create a new .txt file")
 
         try:
-            choice = int(prompt("Enter the number of the file to switch to or create a new file: ").strip())
+            choice = int(
+                prompt(
+                    "Enter the number of the file to switch to or create a new file: "
+                ).strip()
+            )
             if 1 <= choice <= len(todo_files):
                 return todo_files[choice - 1]
             elif choice == len(todo_files) + 1:
                 new_file_name = prompt("Enter the name for the new .txt file: ").strip()
                 if not new_file_name.endswith(".txt"):
                     new_file_name += ".txt"
-                with open(new_file_name, 'w') as f:
-                    self.console.print(f"[bold green]File '{new_file_name}' created.[/bold green]")
+                with open(new_file_name, "w") as f:
+                    self.console.print(
+                        f"[bold green]File '{new_file_name}' created.[/bold green]"
+                    )
                 return new_file_name
             else:
                 self.console.print("[red]Invalid selection![/red]")
